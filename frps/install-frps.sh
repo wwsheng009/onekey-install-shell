@@ -8,18 +8,36 @@ export PATH
 #   Intro:  http://koolshare.cn/forum-72-1.html
 #===============================================================================================
 program_name="frps"
-version="1.8.5"
+# 版本更新后的版本号
+version="2.0.0"
+# 程序安装目录
 str_program_dir="/usr/local/${program_name}"
+# 启动脚本目录
 program_init="/etc/init.d/${program_name}"
-program_config_file="frps.ini"
+# 配置文件
+program_config_file="frps.toml"
+# 版本临时文件
 ver_file="/tmp/.frp_ver.sh"
-program_version_link="https://raw.githubusercontent.com/clangcn/onekey-install-shell/master/frps/version.sh"
-str_install_shell=https://raw.githubusercontent.com/clangcn/onekey-install-shell/master/frps/install-frps.sh
+# 程序版本文件地址
+program_version_link="https://raw.githubusercontent.com/wwsheng009/onekey-install-shell/master/frps/version.sh"
+# 安装脚本的地址
+str_install_shell=https://raw.githubusercontent.com/wwsheng009/onekey-install-shell/master/frps/install-frps.sh
+
+# 更新
 shell_update(){
     fun_clangcn "clear"
     echo "Check updates for shell..."
+    # 检查远程安装脚本的版本号
+    # 下载指定的脚本内容，找到以 version 开头的行，然后提取并打印该行中第二个用双引号分隔的字段。这条命令是提取版本号。
+    # --no-check-certificate 选项用于跳过 SSL 证书的验证。
+    # -qO- 选项表示静默模式下载，并将下载内容输出到标准输出（即终端），而不是文件。
+    # sed -n '/'^version'/p', -n 选项抑制自动打印每一行，只打印匹配的行。/^version/ 是一个正则表达式，表示匹配以 version 开头的行。p 命令用于打印匹配的行。
+    # cut -d\" -f2,-d\" 表示使用双引号 " 作为分隔符。-f2 表示提取第二个字段。
     remote_shell_version=`wget --no-check-certificate -qO- ${str_install_shell} | sed -n '/'^version'/p' | cut -d\" -f2`
+    # 检查变量 remote_shell_version 是否为空,
+    # -z 用于检查字符串长度是否为零，也就是检查变量是否为空。前面的 ! 表示取反，所以 ! -z 检查的是变量是否不为空。
     if [ ! -z ${remote_shell_version} ]; then
+        # 检查远程脚本版本号是否与当前版本号一致
         if [[ "${version}" != "${remote_shell_version}" ]];then
             echo -e "${COLOR_GREEN}Found a new version,update now!!!${COLOR_END}"
             echo
@@ -125,7 +143,9 @@ check_os_bit(){
         ARCHS="386"
     fi
 }
+# Check CentOS version
 check_centosversion(){
+# golang不支持 centos5.x或是redhat5.x
 if centosversion 5; then
     echo "Not support CentOS 5.x, please change to CentOS 6,7 or Debian or Ubuntu and try again."
     exit 1
@@ -180,11 +200,11 @@ fun_get_version(){
     fi
 }
 fun_getServer(){
-    def_server_url="aliyun"
+    def_server_url="github"
     echo ""
     echo -e "Please select ${program_name} download url:"
-    echo -e "[1].aliyun (default)"
-    echo -e "[2].github"
+    echo -e "[1].aliyun (not supported)"
+    echo -e "[2].github (default)"
     read -p "Enter your choice (1, 2 or exit. default [${def_server_url}]): " set_server_url
     [ -z "${set_server_url}" ] && set_server_url="${def_server_url}"
     case "${set_server_url}" in
@@ -198,7 +218,7 @@ fun_getServer(){
             exit 1
             ;;
         *)
-            program_download_url=${aliyun_download_url}
+            program_download_url=${github_download_url}
             ;;
     esac
     echo "---------------------------------------"
@@ -235,11 +255,21 @@ fun_download_file(){
         exit 1
     fi
 }
-function __readINI() {
- INIFILE=$1; SECTION=$2; ITEM=$3
- _readIni=`awk -F '=' '/\['$SECTION'\]/{a=1}a==1&&$1~/'$ITEM'/{print $2;exit}' $INIFILE`
+# function __readINI() {
+#  INIFILE=$1; SECTION=$2; ITEM=$3
+#  _readIni=`awk -F '=' '/\['$SECTION'\]/{a=1}a==1&&$1~/'$ITEM'/{print $2;exit}' $INIFILE`
+# echo ${_readIni}
+# }
+function __readToml() {
+ TOMFILE=$1; SECTION=$2; ITEM=$3
+ if [ -z "${SECTION}" ]; then
+    _readIni=`awk -F '=' '/'$ITEM'/{print $2;exit}' $TOMFILE`
+ else
+    _readIni=`awk -F '=' '/\['$SECTION'\]/{a=1}a==1&&$1~/'$ITEM'/{print $2;exit}' $TOMFILE`
+ fi
 echo ${_readIni}
 }
+
 # Check port
 fun_check_port(){
     port_flag=""
@@ -247,8 +277,12 @@ fun_check_port(){
     input_port=""
     port_flag="$1"
     strCheckPort="$2"
+    # 检查变量 strCheckPort 的值是否在 1 到 65535 之间
+    # [ ${strCheckPort} -ge 1 ] 检查 strCheckPort 是否大于或等于 1。
+    # [ ${strCheckPort} -le 65535 ] 检查 strCheckPort 是否小于或等于 65535
     if [ ${strCheckPort} -ge 1 ] && [ ${strCheckPort} -le 65535 ]; then
         checkServerPort=`netstat -ntulp | grep "\b:${strCheckPort}\b"`
+        # [ -n "${checkServerPort}" ] 检查 checkServerPort 是否非空。-n 是一个字符串操作符，用于检查字符串的长度是否大于零。
         if [ -n "${checkServerPort}" ]; then
             echo ""
             echo -e "${COLOR_RED}Error:${COLOR_END} Port ${COLOR_GREEN}${strCheckPort}${COLOR_END} is ${COLOR_PINK}used${COLOR_END},view relevant port:"
@@ -279,7 +313,7 @@ fun_check_number(){
 }
 # input port
 fun_input_bind_port(){
-    def_server_port="5443"
+    def_server_port="7000"
     echo ""
     echo -n -e "Please input ${program_name} ${COLOR_GREEN}bind_port${COLOR_END} [1-65535]"
     read -p "(Default Server Port: ${def_server_port}):" serverport
@@ -287,7 +321,7 @@ fun_input_bind_port(){
     fun_check_port "bind" "${serverport}"
 }
 fun_input_dashboard_port(){
-    def_dashboard_port="6443"
+    def_dashboard_port="7500"
     echo ""
     echo -n -e "Please input ${program_name} ${COLOR_GREEN}dashboard_port${COLOR_END} [1-65535]"
     read -p "(Default dashboard_port: ${def_dashboard_port}):" input_dashboard_port
@@ -295,7 +329,7 @@ fun_input_dashboard_port(){
     fun_check_port "dashboard" "${input_dashboard_port}"
 }
 fun_input_vhost_http_port(){
-    def_vhost_http_port="80"
+    def_vhost_http_port="8000"
     echo ""
     echo -n -e "Please input ${program_name} ${COLOR_GREEN}vhost_http_port${COLOR_END} [1-65535]"
     read -p "(Default vhost_http_port: ${def_vhost_http_port}):" input_vhost_http_port
@@ -303,7 +337,7 @@ fun_input_vhost_http_port(){
     fun_check_port "vhost_http" "${input_vhost_http_port}"
 }
 fun_input_vhost_https_port(){
-    def_vhost_https_port="443"
+    def_vhost_https_port="8443"
     echo ""
     echo -n -e "Please input ${program_name} ${COLOR_GREEN}vhost_https_port${COLOR_END} [1-65535]"
     read -p "(Default vhost_https_port: ${def_vhost_https_port}):" input_vhost_https_port
@@ -511,69 +545,95 @@ install_program_server_clang(){
 # Config file
 if [[ "${set_kcp}" == "false" ]]; then
 cat > ${str_program_dir}/${program_config_file}<<-EOF
-# [common] is integral section
-[common]
 # A literal address or host name for IPv6 must be enclosed
 # in square brackets, as in "[::1]:80", "[ipv6-host]:http" or "[ipv6-host%zone]:80"
-bind_addr = 0.0.0.0
-bind_port = ${set_bind_port}
-# udp port used for kcp protocol, it can be same with 'bind_port'
-# if not set, kcp is disabled in frps
-#kcp_bind_port = ${set_bind_port}
-# if you want to configure or reload frps by dashboard, dashboard_port must be set
-dashboard_port = ${set_dashboard_port}
-# dashboard assets directory(only for debug mode)
-dashboard_user = ${set_dashboard_user}
-dashboard_pwd = ${set_dashboard_pwd}
-# assets_dir = ./static
-vhost_http_port = ${set_vhost_http_port}
-vhost_https_port = ${set_vhost_https_port}
+# For single "bindAddr" field, no need square brackets, like `bindAddr = "::"`.
+bindAddr = "0.0.0.0"
+bindPort = ${set_bind_port}
+
+# udp port used for kcp protocol, it can be same with 'bindPort'.
+# if not set, kcp is disabled in frps.
+# kcpBindPort = ${set_bind_port}
+
+# Configure the web server to enable the dashboard for frps.
+# dashboard is available only if webServer.port is set.
+webServer.addr = "0.0.0.0"
+webServer.port = ${set_dashboard_port}
+webServer.user = ${set_dashboard_user}
+webServer.password = ${set_dashboard_pwd}
+
+# If you want to support virtual host, you must set the http port for listening (optional)
+# Note: http port and https port can be same with bindPort
+vhostHTTPPort = ${set_vhost_http_port}
+vhostHTTPSPort = ${set_vhost_https_port}
+
 # console or real logFile path like ./frps.log
-log_file = ${str_log_file}
-# debug, info, warn, error
-log_level = ${str_log_level}
-log_max_days = ${set_log_max_days}
+log.to = ${str_log_file}
+# trace, debug, info, warn, error
+log.level = ${str_log_level}
+log.maxDays = ${set_log_max_days}
+# disable log colors when log.to is console, default is false
+log.disablePrintColor = false
+
+# auth.method specifies what authentication method to use authenticate frpc with frps.
+# If "token" is specified - token will be read into login message.
+# If "oidc" is specified - OIDC (Open ID Connect) token will be issued using OIDC settings. By default, this value is "token".
+auth.method = "token"
+
 # auth token
-token = ${set_token}
-# only allow frpc to bind ports you list, if you set nothing, there won't be any limit
-#allow_ports = 1-65535
-# pool_count in each proxy will change to max_pool_count if they exceed the maximum value
-max_pool_count = ${set_max_pool_count}
-# if tcp stream multiplexing is used, default is true
-tcp_mux = ${set_tcp_mux}
+auth.token = ${set_token}
+
+# Pool count in each proxy will keep no more than maxPoolCount.
+transport.maxPoolCount = ${set_max_pool_count}
+
+# If tcp stream multiplexing is used, default is true
+# transport.tcpMux = ${set_tcp_mux}
 EOF
 else
 cat > ${str_program_dir}/${program_config_file}<<-EOF
-# [common] is integral section
-[common]
 # A literal address or host name for IPv6 must be enclosed
 # in square brackets, as in "[::1]:80", "[ipv6-host]:http" or "[ipv6-host%zone]:80"
-bind_addr = 0.0.0.0
-bind_port = ${set_bind_port}
-# udp port used for kcp protocol, it can be same with 'bind_port'
-# if not set, kcp is disabled in frps
-kcp_bind_port = ${set_bind_port}
-# if you want to configure or reload frps by dashboard, dashboard_port must be set
-dashboard_port = ${set_dashboard_port}
-# dashboard assets directory(only for debug mode)
-dashboard_user = ${set_dashboard_user}
-dashboard_pwd = ${set_dashboard_pwd}
-# assets_dir = ./static
-vhost_http_port = ${set_vhost_http_port}
-vhost_https_port = ${set_vhost_https_port}
+# For single "bindAddr" field, no need square brackets, like `bindAddr = "::"`.
+bindAddr = "0.0.0.0"
+bindPort = ${set_bind_port}
+
+# udp port used for kcp protocol, it can be same with 'bindPort'.
+# if not set, kcp is disabled in frps.
+kcpBindPort = ${set_bind_port}
+
+# Configure the web server to enable the dashboard for frps.
+# dashboard is available only if webServer.port is set.
+webServer.addr = "0.0.0.0"
+webServer.port = ${set_dashboard_port}
+webServer.user = ${set_dashboard_user}
+webServer.password = ${set_dashboard_pwd}
+
+# If you want to support virtual host, you must set the http port for listening (optional)
+# Note: http port and https port can be same with bindPort
+vhostHTTPPort = ${set_vhost_http_port}
+vhostHTTPSPort = ${set_vhost_https_port}
+
 # console or real logFile path like ./frps.log
-log_file = ${str_log_file}
-# debug, info, warn, error
-log_level = ${str_log_level}
-log_max_days = ${set_log_max_days}
+log.to = ${str_log_file}
+# trace, debug, info, warn, error
+log.level = ${str_log_level}
+log.maxDays = ${set_log_max_days}
+# disable log colors when log.to is console, default is false
+log.disablePrintColor = false
+
+# auth.method specifies what authentication method to use authenticate frpc with frps.
+# If "token" is specified - token will be read into login message.
+# If "oidc" is specified - OIDC (Open ID Connect) token will be issued using OIDC settings. By default, this value is "token".
+auth.method = "token"
+
 # auth token
-token = ${set_token}
-# only allow frpc to bind ports you list, if you set nothing, there won't be any limit
-#allow_ports = 1-65535
-# pool_count in each proxy will change to max_pool_count if they exceed the maximum value
-max_pool_count = ${set_max_pool_count}
-# if tcp stream multiplexing is used, default is true
-tcp_mux = ${set_tcp_mux}
+auth.token = ${set_token}
+
+# Pool count in each proxy will keep no more than maxPoolCount.
+transport.maxPoolCount = ${set_max_pool_count}
+
+# If tcp stream multiplexing is used, default is true
+# transport.tcpMux = ${set_tcp_mux}
 EOF
 fi
     echo " done"
@@ -686,30 +746,30 @@ update_config_clang(){
     if [ ! -r "${str_program_dir}/${program_config_file}" ]; then
         echo "config file ${str_program_dir}/${program_config_file} not found."
     else
-        search_dashboard_user=`grep "dashboard_user" ${str_program_dir}/${program_config_file}`
-        search_dashboard_pwd=`grep "dashboard_pwd" ${str_program_dir}/${program_config_file}`
-        search_kcp_bind_port=`grep "kcp_bind_port" ${str_program_dir}/${program_config_file}`
-        search_tcp_mux=`grep "tcp_mux" ${str_program_dir}/${program_config_file}`
-        search_token=`grep "privilege_token" ${str_program_dir}/${program_config_file}`
-        search_allow_ports=`grep "privilege_allow_ports" ${str_program_dir}/${program_config_file}`
-        if [ -z "${search_dashboard_user}" ] || [ -z "${search_dashboard_pwd}" ] || [ -z "${search_kcp_bind_port}" ] || [ -z "${search_tcp_mux}" ] || [ ! -z "${search_token}" ] || [ ! -z "${search_allow_ports}" ];then
+        search_dashboard_user=`grep "webServer.user" ${str_program_dir}/${program_config_file}`
+        search_dashboard_pwd=`grep "webServer.password" ${str_program_dir}/${program_config_file}`
+        search_kcp_bind_port=`grep "kcpBindPort" ${str_program_dir}/${program_config_file}`
+        search_tcp_mux=`grep "transport.tcpMux" ${str_program_dir}/${program_config_file}`
+        # search_token=`grep "token" ${str_program_dir}/${program_config_file}`
+        # search_allow_ports=`grep "allowPorts" ${str_program_dir}/${program_config_file}`
+        if [ -z "${search_dashboard_user}" ] || [ -z "${search_dashboard_pwd}" ] || [ -z "${search_kcp_bind_port}" ] || [ -z "${search_tcp_mux}" ];then # || [ ! -z "${search_token}" ] || [ ! -z "${search_allow_ports}" ];then
             echo -e "${COLOR_GREEN}Configuration files need to be updated, now setting:${COLOR_END}"
             echo ""
-            if [ ! -z "${search_token}" ];then
-                sed -i "s/privilege_token/token/" ${str_program_dir}/${program_config_file}
-            fi
+            # if [ ! -z "${search_token}" ];then
+            #     sed -i "s/token/auth\.token/" ${str_program_dir}/${program_config_file}
+            # fi
             if [ -z "${search_dashboard_user}" ] && [ -z "${search_dashboard_pwd}" ];then
                 def_dashboard_user_update="admin"
-                read -p "Please input dashboard_user (Default: ${def_dashboard_user_update}):" set_dashboard_user_update
+                read -p "Please input webServer.user (Default: ${def_dashboard_user_update}):" set_dashboard_user_update
                 [ -z "${set_dashboard_user_update}" ] && set_dashboard_user_update="${def_dashboard_user_update}"
-                echo "${program_name} dashboard_user: ${set_dashboard_user_update}"
+                echo "${program_name} webServer.user: ${set_dashboard_user_update}"
                 echo ""
                 def_dashboard_pwd_update=`fun_randstr 8`
-                read -p "Please input dashboard_pwd (Default: ${def_dashboard_pwd_update}):" set_dashboard_pwd_update
+                read -p "Please input webServer.password (Default: ${def_dashboard_pwd_update}):" set_dashboard_pwd_update
                 [ -z "${set_dashboard_pwd_update}" ] && set_dashboard_pwd_update="${def_dashboard_pwd_update}"
-                echo "${program_name} dashboard_pwd: ${set_dashboard_pwd_update}"
+                echo "${program_name} webServer.password: ${set_dashboard_pwd_update}"
                 echo ""
-                sed -i "/dashboard_port =.*/a\dashboard_user = ${set_dashboard_user_update}\ndashboard_pwd = ${set_dashboard_pwd_update}\n" ${str_program_dir}/${program_config_file}
+                sed -i "/webServer\.port =.*/a\webServer\.user = ${set_dashboard_user_update}\nwebServer\.password = ${set_dashboard_pwd_update}\n" ${str_program_dir}/${program_config_file}
             fi
             if [ -z "${search_kcp_bind_port}" ];then
                 echo "##### Please select kcp support #####"
@@ -732,11 +792,11 @@ update_config_clang(){
                         ;;
                 esac
                 echo "kcp support: ${set_kcp}"
-                def_kcp_bind_port=( $( __readINI ${str_program_dir}/${program_config_file} common bind_port ) )
+                def_kcp_bind_port=( $( __readToml ${str_program_dir}/${program_config_file} '' kcpBindPort ) )
                 if [[ "${set_kcp}" == "false" ]]; then
-                    sed -i "/^bind_port =.*/a\# udp port used for kcp protocol, it can be same with 'bind_port'\n# if not set, kcp is disabled in frps\n#kcp_bind_port = ${def_kcp_bind_port}\n" ${str_program_dir}/${program_config_file}
+                    sed -i "/^bindPort =.*/a\# udp port used for kcp protocol, it can be same with 'bindPort'\n# if not set, kcp is disabled in frps\n#kcpBindPort = ${def_kcp_bind_port}\n" ${str_program_dir}/${program_config_file}
                 else
-                    sed -i "/^bind_port =.*/a\# udp port used for kcp protocol, it can be same with 'bind_port'\n# if not set, kcp is disabled in frps\nkcp_bind_port = ${def_kcp_bind_port}\n" ${str_program_dir}/${program_config_file}
+                    sed -i "/^bindPort =.*/a\# udp port used for kcp protocol, it can be same with 'bindPort'\n# if not set, kcp is disabled in frps\nkcpBindPort = ${def_kcp_bind_port}\n" ${str_program_dir}/${program_config_file}
                 fi
             fi
             if [ -z "${search_tcp_mux}" ];then
@@ -759,21 +819,21 @@ update_config_clang(){
                         set_tcp_mux="true"
                         ;;
                 esac
-                echo "tcp_mux: ${set_tcp_mux}"
-                sed -i "/^privilege_mode = true/d" ${str_program_dir}/${program_config_file}
-                sed -i "/^token =.*/a\# if tcp stream multiplexing is used, default is true\ntcp_mux = ${set_tcp_mux}\n" ${str_program_dir}/${program_config_file}
+                echo "transport.tcpMux: ${set_tcp_mux}"
+                # sed -i "/^privilege_mode = true/d" ${str_program_dir}/${program_config_file}
+                sed -i "/^auth\.token =.*/a\# if tcp stream multiplexing is used, default is true\ntransport.tcpMux = ${set_tcp_mux}\n" ${str_program_dir}/${program_config_file}
             fi
-            if [ ! -z "${search_allow_ports}" ];then
-                sed -i "s/privilege_allow_ports/allow_ports/" ${str_program_dir}/${program_config_file}
-            fi
+            # if [ ! -z "${search_allow_ports}" ];then
+            #     sed -i "s/privilege_allow_ports/allowPorts/" ${str_program_dir}/${program_config_file}
+            # fi
         fi
-        verify_dashboard_user=`grep "^dashboard_user" ${str_program_dir}/${program_config_file}`
-        verify_dashboard_pwd=`grep "^dashboard_pwd" ${str_program_dir}/${program_config_file}`
-        verify_kcp_bind_port=`grep "kcp_bind_port" ${str_program_dir}/${program_config_file}`
-        verify_tcp_mux=`grep "^tcp_mux" ${str_program_dir}/${program_config_file}`
-        verify_token=`grep "privilege_token" ${str_program_dir}/${program_config_file}`
-        verify_allow_ports=`grep "privilege_allow_ports" ${str_program_dir}/${program_config_file}`
-        if [ ! -z "${verify_dashboard_user}" ] && [ ! -z "${verify_dashboard_pwd}" ] && [ ! -z "${verify_kcp_bind_port}" ] && [ ! -z "${verify_tcp_mux}" ] && [ -z "${verify_token}" ] && [ -z "${verify_allow_ports}" ];then
+        verify_dashboard_user=`grep "^webServer.addr" ${str_program_dir}/${program_config_file}`
+        verify_dashboard_pwd=`grep "^webServer.port" ${str_program_dir}/${program_config_file}`
+        verify_kcp_bind_port=`grep "kcpBindPort" ${str_program_dir}/${program_config_file}`
+        verify_tcp_mux=`grep "^transport.tcpMux" ${str_program_dir}/${program_config_file}`
+        # verify_token=`grep "auth.token" ${str_program_dir}/${program_config_file}`
+        # verify_allow_ports=`grep "allowPorts" ${str_program_dir}/${program_config_file}`
+        if [ ! -z "${verify_dashboard_user}" ] && [ ! -z "${verify_dashboard_pwd}" ] && [ ! -z "${verify_kcp_bind_port}" ] && [ ! -z "${verify_tcp_mux}" ] ;then #&& [ -z "${verify_token}" ] && [ -z "${verify_allow_ports}" ];then
             echo -e "${COLOR_GREEN}update configuration file successfully!!!${COLOR_END}"
         else
             echo -e "${COLOR_RED}update configuration file error!!!${COLOR_END}"
@@ -808,7 +868,7 @@ update_program_server_clang(){
         fun_getServer
         fun_getVer >/dev/null 2>&1
         local_program_version=`${str_program_dir}/${program_name} --version`
-        echo -e "${COLOR_GREEN}${program_name}  local version ${local_program_version}${COLOR_END}"
+        echo -e "${COLOR_GREEN}${program_name} local version ${local_program_version}${COLOR_END}"
         echo -e "${COLOR_GREEN}${program_name} remote version ${FRPS_VER}${COLOR_END}"
         if [[ "${local_program_version}" != "${FRPS_VER}" ]];then
             echo -e "${COLOR_GREEN}Found a new version,update now!!!${COLOR_END}"

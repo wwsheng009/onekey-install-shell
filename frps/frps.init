@@ -24,7 +24,7 @@ ProgramName="Frps"
 ProgramPath="/usr/local/frps"
 NAME=frps
 BIN=${ProgramPath}/${NAME}
-CONFIGFILE=${ProgramPath}/frps.ini
+CONFIGFILE=${ProgramPath}/frps.toml
 SCRIPTNAME=/etc/init.d/${NAME}
 version="1.1"
 program_version=`${BIN} --version`
@@ -44,6 +44,7 @@ fun_clangcn()
 }
 
 fun_check_run(){
+    # 列出所有进程，排除 grep 命令本身的行，然后查找包含 ${BIN} 的行，并打印其 PID
     PID=`ps -ef | grep -v grep | grep -i "${BIN}" | awk '{print $2}'`
     if [ ! -z $PID ]; then
         return 0
