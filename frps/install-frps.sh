@@ -9,7 +9,7 @@ export PATH
 #===============================================================================================
 program_name="frps"
 # 版本更新后的版本号
-version="2.0.0"
+version="2.0.1"
 # 程序安装目录
 str_program_dir="/usr/local/${program_name}"
 # 启动脚本目录
@@ -559,8 +559,8 @@ bindPort = ${set_bind_port}
 # dashboard is available only if webServer.port is set.
 webServer.addr = "0.0.0.0"
 webServer.port = ${set_dashboard_port}
-webServer.user = ${set_dashboard_user}
-webServer.password = ${set_dashboard_pwd}
+webServer.user = "${set_dashboard_user}"
+webServer.password = "${set_dashboard_pwd}"
 
 # If you want to support virtual host, you must set the http port for listening (optional)
 # Note: http port and https port can be same with bindPort
@@ -568,9 +568,9 @@ vhostHTTPPort = ${set_vhost_http_port}
 vhostHTTPSPort = ${set_vhost_https_port}
 
 # console or real logFile path like ./frps.log
-log.to = ${str_log_file}
+log.to = "${str_log_file}"
 # trace, debug, info, warn, error
-log.level = ${str_log_level}
+log.level = "${str_log_level}"
 log.maxDays = ${set_log_max_days}
 # disable log colors when log.to is console, default is false
 log.disablePrintColor = false
@@ -581,13 +581,13 @@ log.disablePrintColor = false
 auth.method = "token"
 
 # auth token
-auth.token = ${set_token}
+auth.token = "${set_token}"
 
 # Pool count in each proxy will keep no more than maxPoolCount.
 transport.maxPoolCount = ${set_max_pool_count}
 
 # If tcp stream multiplexing is used, default is true
-# transport.tcpMux = ${set_tcp_mux}
+transport.tcpMux = ${set_tcp_mux}
 EOF
 else
 cat > ${str_program_dir}/${program_config_file}<<-EOF
@@ -605,8 +605,8 @@ kcpBindPort = ${set_bind_port}
 # dashboard is available only if webServer.port is set.
 webServer.addr = "0.0.0.0"
 webServer.port = ${set_dashboard_port}
-webServer.user = ${set_dashboard_user}
-webServer.password = ${set_dashboard_pwd}
+webServer.user = "${set_dashboard_user}"
+webServer.password = "${set_dashboard_pwd}"
 
 # If you want to support virtual host, you must set the http port for listening (optional)
 # Note: http port and https port can be same with bindPort
@@ -614,9 +614,9 @@ vhostHTTPPort = ${set_vhost_http_port}
 vhostHTTPSPort = ${set_vhost_https_port}
 
 # console or real logFile path like ./frps.log
-log.to = ${str_log_file}
+log.to = "${str_log_file}"
 # trace, debug, info, warn, error
-log.level = ${str_log_level}
+log.level = "${str_log_level}"
 log.maxDays = ${set_log_max_days}
 # disable log colors when log.to is console, default is false
 log.disablePrintColor = false
@@ -627,13 +627,13 @@ log.disablePrintColor = false
 auth.method = "token"
 
 # auth token
-auth.token = ${set_token}
+auth.token = "${set_token}"
 
 # Pool count in each proxy will keep no more than maxPoolCount.
 transport.maxPoolCount = ${set_max_pool_count}
 
 # If tcp stream multiplexing is used, default is true
-# transport.tcpMux = ${set_tcp_mux}
+transport.tcpMux = ${set_tcp_mux}
 EOF
 fi
     echo " done"
@@ -769,7 +769,7 @@ update_config_clang(){
                 [ -z "${set_dashboard_pwd_update}" ] && set_dashboard_pwd_update="${def_dashboard_pwd_update}"
                 echo "${program_name} webServer.password: ${set_dashboard_pwd_update}"
                 echo ""
-                sed -i "/webServer\.port =.*/a\webServer\.user = ${set_dashboard_user_update}\nwebServer\.password = ${set_dashboard_pwd_update}\n" ${str_program_dir}/${program_config_file}
+                sed -i "/webServer\.port =.*/a\webServer\.user = \"${set_dashboard_user_update}\"\nwebServer\.password = \"${set_dashboard_pwd_update}\"\n" ${str_program_dir}/${program_config_file}
             fi
             if [ -z "${search_kcp_bind_port}" ];then
                 echo "##### Please select kcp support #####"
